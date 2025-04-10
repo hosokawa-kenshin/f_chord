@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:f_chord/screen.dart';
+import 'package:f_chord/config/size_config.dart';
 
 void main() {
   runApp(const MyApp());
@@ -10,6 +11,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    SizeConfig().init(context);
     return MaterialApp(
         title: 'Flutter Demo',
         theme: ThemeData(

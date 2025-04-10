@@ -57,10 +57,8 @@ class ScreenState extends State<Screen> {
         }
         break;
       case 1:
-        goRouter.go('/Shops');
+        goRouter.go('/');
         break;
-      case 2:
-        goRouter.go('/Order');
     }
     setState(() {
       _current_index = index;
