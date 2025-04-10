@@ -40,7 +40,8 @@ class _ChordListPageState extends State<ChordListPage> {
       return List<String>.from(jsonDecode(row['chords'] as String));
     }).toList();
 
-    goRouter.go('/chord', extra: chordGrid);
+    goRouter.go('/chord',
+        extra: {'id': id, 'title': title, 'chordGrid': chordGrid});
   }
 
   @override

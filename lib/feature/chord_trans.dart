@@ -38,6 +38,9 @@ class _ChordPageState extends State<ChordPage> {
 
   int transposeOffset = 0;
   double transpose = 0;
+  bool edit = false;
+  int? progressionId = null;
+  String titile = '';
   final Map<String, List<String>> chordCategories = {
     'M7': [
       'CM7',
@@ -196,20 +199,35 @@ class _ChordPageState extends State<ChordPage> {
         transposeOffset = e.toInt();
       });
 
-  Future<void> saveChordProgression(
-      BuildContext context, String title, List<List<String>> chordGrid) async {
+  Future<void> saveChordProgression(BuildContext context, String title,
+      List<List<String>> chordGrid, int? progressionId) async {
     final db = await DatabaseHelper().db;
 
-    final progressionId = await db.insert('ChordProgression', {
-      'title': title,
-      'createdAt': DateTime.now().toIso8601String(),
-    });
+    if (progressionId != null) {
+      await db.delete(
+        'ChordRow',
+        where: 'progressionId = ?',
+        whereArgs: [progressionId],
+      );
 
-    for (final row in chordGrid) {
-      await db.insert('ChordRow', {
-        'progressionId': progressionId,
-        'chords': jsonEncode(row),
+      for (var row in chordGrid) {
+        await db.insert('ChordRow', {
+          'progressionId': progressionId,
+          'chords': jsonEncode(row),
+        });
+      }
+    } else {
+      final progressionId = await db.insert('ChordProgression', {
+        'title': title,
+        'createdAt': DateTime.now().toIso8601String(),
       });
+
+      for (final row in chordGrid) {
+        await db.insert('ChordRow', {
+          'progressionId': progressionId,
+          'chords': jsonEncode(row),
+        });
+      }
     }
 
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -220,11 +238,15 @@ class _ChordPageState extends State<ChordPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-
     final state = goRouter.state;
 
     if (state.extra != null) {
-      chordGrid = List<List<String>>.from(state.extra as List<List<String>>);
+      final extra = state.extra as Map<String, dynamic>;
+      edit = true;
+      chordGrid =
+          List<List<String>>.from(extra['chordGrid'] as List<List<String>>);
+      progressionId = extra['id'] as int;
+      titile = extra['title'] as String;
     } else {
       chordGrid = [[]];
     }
@@ -237,6 +259,39 @@ class _ChordPageState extends State<ChordPage> {
         automaticallyImplyLeading: false,
         backgroundColor: Colors.white,
         elevation: 1,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.save_as_outlined),
+            onPressed: () async {
+              final controller = TextEditingController();
+              controller.text = titile;
+              await showDialog(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: Text('コード進行のタイトル'),
+                  content: TextField(controller: controller),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                      },
+                      child: Text('キャンセル'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await saveChordProgression(
+                            context, controller.text, chordGrid, progressionId);
+                        Navigator.pop(dialogContext);
+                        goRouter.go('/');
+                      },
+                      child: Text('保存'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ],
         title: Align(
           alignment: Alignment.bottomLeft,
           child: Text('Chords',
@@ -271,12 +326,25 @@ class _ChordPageState extends State<ChordPage> {
               ),
             ),
           ),
-          ElevatedButton(
-            onPressed: _addRow,
-            child: Text('行を追加'),
+          Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+            ElevatedButton(
+              onPressed: _addRow,
+              child: Text('行を追加'),
+            ),
+          ]),
+          Divider(
+            color: Colors.grey,
+            thickness: 1,
+            height: 20,
           ),
           Column(children: <Widget>[
-            Text("トランスポーズ"),
+            Padding(
+              padding: const EdgeInsets.only(left: 16.0),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: Text("トランスポーズ"),
+              ),
+            ),
             Slider(
               label: '${transposeOffset}',
               min: -7,
@@ -284,40 +352,10 @@ class _ChordPageState extends State<ChordPage> {
               value: transposeOffset.toDouble(),
               activeColor: Colors.grey,
               inactiveColor: Colors.grey,
-              divisions: 10,
+              divisions: 15,
               onChanged: _changeSlider,
             ),
           ]),
-          ElevatedButton(
-            onPressed: () async {
-              final controller = TextEditingController();
-              await showDialog(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: Text('コード進行のタイトル'),
-                  content: TextField(controller: controller),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(dialogContext);
-                      },
-                      child: Text('キャンセル'),
-                    ),
-                    TextButton(
-                      onPressed: () async {
-                        await saveChordProgression(
-                            context, controller.text, chordGrid);
-                        Navigator.pop(dialogContext);
-                        goRouter.go('/');
-                      },
-                      child: Text('保存'),
-                    ),
-                  ],
-                ),
-              );
-            },
-            child: Text('保存'),
-          ),
         ],
       ),
     );
